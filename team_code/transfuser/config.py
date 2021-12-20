@@ -6,7 +6,7 @@ class GlobalConfig:
     seq_len = 1 # input timesteps
     pred_len = 4 # future waypoints predicted
 
-    root_dir = '/is/rg/avg/aprakash/carla9-10_data/opengl/all_towns_data'
+    root_dir = '/mnt/qb/geiger/kchitta31/data_06_21'
     train_towns = ['Town01', 'Town02', 'Town03', 'Town04', 'Town06', 'Town07', 'Town10']
     val_towns = ['Town05']
     train_data, val_data = [], []
@@ -15,6 +15,13 @@ class GlobalConfig:
         train_data.append(os.path.join(root_dir, town+'_short'))
     for town in val_towns:
         val_data.append(os.path.join(root_dir, town+'_short'))
+
+    # visualizing transformer attention maps
+    viz_root = '/mnt/qb/geiger/kchitta31/data_06_21'
+    viz_towns = ['Town05_tiny']
+    viz_data = []
+    for town in viz_towns:
+        viz_data.append(os.path.join(viz_root, town))
 
     ignore_sides = True # don't consider side cameras
     ignore_rear = True # don't consider rear cameras
@@ -54,7 +61,7 @@ class GlobalConfig:
     speed_n = 40 # buffer size
 
     max_throttle = 0.75 # upper limit on throttle signal value in dataset
-    brake_speed = 0.4 # desired speed below which brake is triggered
+    brake_speed = 0.1 # desired speed below which brake is triggered
     brake_ratio = 1.1 # ratio of speed to desired speed at which brake is triggered
     clip_delta = 0.25 # maximum change in speed input to logitudinal controller
 

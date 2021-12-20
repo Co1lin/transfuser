@@ -5,7 +5,8 @@ from PIL import Image
 import numpy as np
 import torch 
 from torch.utils.data import Dataset
-
+from tqdm import tqdm
+import sys
 
 class CARLA_Data(Dataset):
 
@@ -34,8 +35,8 @@ class CARLA_Data(Dataset):
         self.brake = []
         self.command = []
         self.velocity = []
-
-        for sub_root in root:
+        
+        for sub_root in tqdm(root, file=sys.stdout):
             preload_file = os.path.join(sub_root, 'rg_lidar_diag_pl_'+str(self.seq_len)+'_'+str(self.pred_len)+'.npy')
 
             # dump to npy if no preload
@@ -279,8 +280,8 @@ def lidar_to_histogram_features(lidar, crop=256):
         overhead_splat = hist/hist_max_per_pixel
         return overhead_splat
 
-    below = lidar[lidar[...,2]<=2]
-    above = lidar[lidar[...,2]>2]
+    below = lidar[lidar[...,2]<=-2.0]
+    above = lidar[lidar[...,2]>-2.0]
     below_features = splat_points(below)
     above_features = splat_points(above)
     features = np.stack([below_features, above_features], axis=-1)
