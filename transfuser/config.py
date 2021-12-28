@@ -6,7 +6,7 @@ class GlobalConfig:
     seq_len = 1 # input timesteps
     pred_len = 4 # future waypoints predicted
 
-    root_dir = '/mnt/qb/geiger/kchitta31/data_06_21'
+    root_dir = '/home/airtrans00/colin/transfuser/data/clear_weather_data'
     train_towns = ['Town01', 'Town02', 'Town03', 'Town04', 'Town06', 'Town07', 'Town10']
     val_towns = ['Town05']
     train_data, val_data = [], []
@@ -17,7 +17,7 @@ class GlobalConfig:
         val_data.append(os.path.join(root_dir, town+'_short'))
 
     # visualizing transformer attention maps
-    viz_root = '/mnt/qb/geiger/kchitta31/data_06_21'
+    viz_root = '/home/airtrans00/colin/transfuser/data/clear_weather_data'
     viz_towns = ['Town05_tiny']
     viz_data = []
     for town in viz_towns:

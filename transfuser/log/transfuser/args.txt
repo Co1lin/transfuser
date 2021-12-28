@@ -1,0 +1,9 @@
+{
+  "id": "transfuser",
+  "device": "cuda",
+  "epochs": 101,
+  "lr": 0.0001,
+  "val_every": 5,
+  "batch_size": 4,
+  "logdir": "log/transfuser"
+}
