@@ -16,7 +16,9 @@ class PC2Canvas(nn.Module):
     
     def __init__(self) -> None:
         super().__init__()
-        
+        # TODO use smaller voxel size and bigger output shape, then downsample the psedo img
+        # TODO use stronger resnet backbone to process pointpillar img
+        # TODO pointpillar lr 1e-3
         cfg_dict = {
             'voxel_size': [0.625, 0.316, 4],
             'point_cloud_range': [-80, -80, -3, 80, 1, 15],
