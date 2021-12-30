@@ -138,8 +138,10 @@ class Engine(object):
 			optimizer.step()
 
 			writer.add_scalar('train_loss', loss.item(), self.cur_iter)
+			from IPython import embed
+			embed()
 			if args.wandb:
-				wandb.log({'train_loss': loss.item()})
+				wandb.log({'train_loss', loss.item()})
 			self.cur_iter += 1
 		
 		
@@ -200,7 +202,7 @@ class Engine(object):
 
 			writer.add_scalar('val_loss', wp_loss, self.cur_epoch)
 			if args.wandb:
-				wandb.log({'val_loss': wp_loss})
+				wandb.log({'val_loss', wp_loss})
 			
 			self.val_loss.append(wp_loss)
 

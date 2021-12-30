@@ -28,7 +28,6 @@ parser.add_argument('--batch_size', type=int, default=24, help='Batch size')
 parser.add_argument('--logdir', type=str, default='log', help='Directory to log data to.')
 parser.add_argument('--pc_bb', type=str, default='bev', help='bev or pointpillars for pointcloud processing backbone')
 parser.add_argument('--wandb', dest='wandb', action='store_true')
-parser.add_argument('--seed', type=int, default=10, help='seed')
 
 args = parser.parse_args()
 args.logdir = os.path.join(args.logdir, args.id)
@@ -39,7 +38,7 @@ if args.wandb:
 		project='Transfuser',
 	)
 
-def seed_all(seed: int = 10):
+def seed_all(seed: int):
 	import random
 	import numpy as np
 	import torch
@@ -53,7 +52,7 @@ def seed_all(seed: int = 10):
 		torch.backends.cudnn.deterministic = True
 		torch.backends.cudnn.benchmark = False
 
-seed_all(args.seed)
+seed_all()
 
 class Engine(object):
 	"""Engine that runs training and inference.
@@ -139,7 +138,7 @@ class Engine(object):
 
 			writer.add_scalar('train_loss', loss.item(), self.cur_iter)
 			if args.wandb:
-				wandb.log({'train_loss': loss.item()})
+				wandb.log({'train_loss', loss.item()})
 			self.cur_iter += 1
 		
 		
@@ -200,7 +199,7 @@ class Engine(object):
 
 			writer.add_scalar('val_loss', wp_loss, self.cur_epoch)
 			if args.wandb:
-				wandb.log({'val_loss': wp_loss})
+				wandb.log({'val_loss', wp_loss})
 			
 			self.val_loss.append(wp_loss)
 

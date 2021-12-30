@@ -1,0 +1,36 @@
+{
+    "root": "/home/airtrans00/colin/transfuser",
+    "program": "train.py",
+    "git": {
+        "remote": "git@github.com:Co1lin/transfuser.git",
+        "commit": "5a1ac1b26e364ca711e47a5d70b4718919c19cca"
+    },
+    "email": "wzhtomg@gmail.com",
+    "codePath": "transfuser/train.py",
+    "startedAt": "2021-12-30T07:48:09.040927",
+    "host": "airtrans00-wzh",
+    "username": "airtrans00",
+    "executable": "/home/airtrans00/anaconda3/envs/transfuser/bin/python",
+    "os": "Linux-5.13.0-22-generic-x86_64-with-debian-11.0",
+    "python": "3.7.11",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti",
+    "gpu_count": 1,
+    "cpu_count": 32,
+    "args": [
+        "--id",
+        "transfuser",
+        "--batch_size",
+        "16",
+        "--logdir",
+        "log/pp1",
+        "--pc_bb",
+        "pp",
+        "--wandb"
+    ],
+    "state": "failed",
+    "jobType": null,
+    "mode": "run",
+    "project": "Transfuser",
+    "heartbeatAt": "2021-12-30T07:48:18.668716",
+    "exitcode": 1
+}
