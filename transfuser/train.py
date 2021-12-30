@@ -107,10 +107,10 @@ class Engine(object):
 				lidars.append(lidars_in[i].to(args.device, dtype=torch.float32))
 				raw_lidars.append([
         			raw_lidars_in[batch][i].to(args.device, dtype=torch.float32)
-           			for batch in range(args.batch_size)
+           			for batch in range(len(raw_lidars_in))
               	])
-
-			# driving labels
+			
+   			# driving labels
 			command = data['command'].to(args.device)
 			gt_velocity = data['velocity'].to(args.device, dtype=torch.float32)
 			gt_steer = data['steer'].to(args.device, dtype=torch.float32)
@@ -163,11 +163,13 @@ class Engine(object):
 				rights_in = data['rights']
 				rears_in = data['rears']
 				lidars_in = data['lidars']
+				raw_lidars_in = data['raw_lidars']
 				fronts = []
 				lefts = []
 				rights = []
 				rears = []
 				lidars = []
+				raw_lidars = []
 				for i in range(config.seq_len):
 					fronts.append(fronts_in[i].to(args.device, dtype=torch.float32))
 					if not config.ignore_sides:
@@ -176,6 +178,10 @@ class Engine(object):
 					if not config.ignore_rear:
 						rears.append(rears_in[i].to(args.device, dtype=torch.float32))
 					lidars.append(lidars_in[i].to(args.device, dtype=torch.float32))
+					raw_lidars.append([
+						raw_lidars_in[batch][i].to(args.device, dtype=torch.float32)
+						for batch in range(len(raw_lidars_in))
+					])
 
 				# driving labels
 				command = data['command'].to(args.device)
@@ -187,7 +193,13 @@ class Engine(object):
 				# target point
 				target_point = torch.stack(data['target_point'], dim=1).to(args.device, dtype=torch.float32)
 
-				pred_wp = model(fronts+lefts+rights+rears, lidars, target_point, gt_velocity)
+				# pass data to transformer and forward
+				if args.pc_bb == 'bev':
+					pred_wp = model(fronts+lefts+rights+rears, lidars, target_point, gt_velocity)
+				elif args.pc_bb == 'pp':
+					pred_wp = model(fronts+lefts+rights+rears, raw_lidars, target_point, gt_velocity)
+				else:
+					raise NotImplementedError(args.pc_bb)
 
 				gt_waypoints = [torch.stack(data['waypoints'][i], dim=1).to(args.device, dtype=torch.float32) for i in range(config.seq_len, len(data['waypoints']))]
 				gt_waypoints = torch.stack(gt_waypoints, dim=1).to(args.device, dtype=torch.float32)
@@ -296,7 +308,7 @@ with open(os.path.join(args.logdir, 'args.txt'), 'w') as f:
 	json.dump(args.__dict__, f, indent=2)
 
 for epoch in range(trainer.cur_epoch, args.epochs): 
-	trainer.train()
 	if epoch % args.val_every == 0: 
 		trainer.validate()
 		trainer.save()
+	trainer.train()
