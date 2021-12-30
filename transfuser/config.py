@@ -13,6 +13,7 @@ class GlobalConfig:
     for town in train_towns:
         train_data.append(os.path.join(root_dir, town+'_tiny'))
         train_data.append(os.path.join(root_dir, town+'_short'))
+        # train_data.append(os.path.join(root_dir, town+'_long'))
     for town in val_towns:
         val_data.append(os.path.join(root_dir, town+'_short'))
 
@@ -33,6 +34,9 @@ class GlobalConfig:
     crop = 256 # image pre-processing
 
     lr = 1e-4 # learning rate
+    
+    # pointpillar or BEV
+    pc_bb = 'bev'
 
     # Conv Encoder
     vert_anchors = 8

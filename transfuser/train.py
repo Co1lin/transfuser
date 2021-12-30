@@ -2,6 +2,7 @@ import argparse
 import json
 import os
 from tqdm import tqdm
+import wandb
 
 import numpy as np
 import torch
@@ -25,12 +26,33 @@ parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate.')
 parser.add_argument('--val_every', type=int, default=5, help='Validation frequency (epochs).')
 parser.add_argument('--batch_size', type=int, default=24, help='Batch size')
 parser.add_argument('--logdir', type=str, default='log', help='Directory to log data to.')
+parser.add_argument('--pc_bb', type=str, default='bev', help='bev or pointpillars for pointcloud processing backbone')
+parser.add_argument('--wandb', dest='wandb', action='store_true')
 
 args = parser.parse_args()
 args.logdir = os.path.join(args.logdir, args.id)
 
 writer = SummaryWriter(log_dir=args.logdir)
+if args.wandb:
+	wandb.init(
+		project='Transfuser',
+	)
 
+def seed_all(seed: int):
+	import random
+	import numpy as np
+	import torch
+ 
+	if seed is not None:
+		random.seed(seed)
+		np.random.seed(seed)
+		torch.manual_seed(seed)
+		torch.cuda.manual_seed(seed)
+		torch.cuda.manual_seed_all(seed)
+		torch.backends.cudnn.deterministic = True
+		torch.backends.cudnn.benchmark = False
+
+seed_all()
 
 class Engine(object):
 	"""Engine that runs training and inference.
@@ -67,11 +89,13 @@ class Engine(object):
 			rights_in = data['rights']
 			rears_in = data['rears']
 			lidars_in = data['lidars']
+			raw_lidars_in = data['raw_lidars']
 			fronts = []
 			lefts = []
 			rights = []
 			rears = []
 			lidars = []
+			raw_lidars = []
 			for i in range(config.seq_len):
 				fronts.append(fronts_in[i].to(args.device, dtype=torch.float32))
 				if not config.ignore_sides:
@@ -80,6 +104,10 @@ class Engine(object):
 				if not config.ignore_rear:
 					rears.append(rears_in[i].to(args.device, dtype=torch.float32))
 				lidars.append(lidars_in[i].to(args.device, dtype=torch.float32))
+				raw_lidars.append([
+        			raw_lidars_in[batch][i].to(args.device, dtype=torch.float32)
+           			for batch in range(args.batch_size)
+              	])
 
 			# driving labels
 			command = data['command'].to(args.device)
@@ -87,11 +115,17 @@ class Engine(object):
 			gt_steer = data['steer'].to(args.device, dtype=torch.float32)
 			gt_throttle = data['throttle'].to(args.device, dtype=torch.float32)
 			gt_brake = data['brake'].to(args.device, dtype=torch.float32)
-
+   
 			# target point
 			target_point = torch.stack(data['target_point'], dim=1).to(args.device, dtype=torch.float32)
 			
-			pred_wp = model(fronts+lefts+rights+rears, lidars, target_point, gt_velocity)
+   			# pass data to transformer and forward
+			if args.pc_bb == 'bev':
+				pred_wp = model(fronts+lefts+rights+rears, lidars, target_point, gt_velocity)
+			elif args.pc_bb == 'pp':
+				pred_wp = model(fronts+lefts+rights+rears, raw_lidars, target_point, gt_velocity)
+			else:
+				raise NotImplementedError(args.pc_bb)
 			
 			gt_waypoints = [torch.stack(data['waypoints'][i], dim=1).to(args.device, dtype=torch.float32) for i in range(config.seq_len, len(data['waypoints']))]
 			gt_waypoints = torch.stack(gt_waypoints, dim=1).to(args.device, dtype=torch.float32)
@@ -103,6 +137,8 @@ class Engine(object):
 			optimizer.step()
 
 			writer.add_scalar('train_loss', loss.item(), self.cur_iter)
+			if args.wandb:
+				wandb.log({'train_loss', loss.item()})
 			self.cur_iter += 1
 		
 		
@@ -162,6 +198,8 @@ class Engine(object):
 			tqdm.write(f'Epoch {self.cur_epoch:03d}, Batch {batch_num:03d}:' + f' Wp: {wp_loss:3.3f}')
 
 			writer.add_scalar('val_loss', wp_loss, self.cur_epoch)
+			if args.wandb:
+				wandb.log({'val_loss', wp_loss})
 			
 			self.val_loss.append(wp_loss)
 
@@ -203,13 +241,25 @@ class Engine(object):
 
 # Config
 config = GlobalConfig()
+config.pc_bb = args.pc_bb
 
 # Data
 train_set = CARLA_Data(root=config.train_data, config=config)
 val_set = CARLA_Data(root=config.val_data, config=config)
 
-dataloader_train = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=8, pin_memory=True)
-dataloader_val = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=8, pin_memory=True)
+def collate_fn(batch):
+    default_collate = torch.utils.data.dataloader.default_collate
+    collated_batch = {}
+    for key in batch[0]:
+        if key in ['raw_lidars']:
+            collated_batch[key] = [elem[key] for elem in batch]
+        else:
+            collated_batch[key] = default_collate([elem[key] for elem in batch])
+    
+    return collated_batch
+
+dataloader_train = DataLoader(train_set, batch_size=args.batch_size, shuffle=True, num_workers=8, pin_memory=True, collate_fn=collate_fn)
+dataloader_val = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, num_workers=8, pin_memory=True, collate_fn=collate_fn)
 
 # Model
 model = TransFuser(config, args.device)

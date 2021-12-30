@@ -7,6 +7,79 @@ from torch import nn
 import torch.nn.functional as F
 from torchvision import models
 
+from mmdet3d.models.detectors.voxelnet import VoxelNet
+from mmdet3d.models.voxel_encoders.pillar_encoder import PillarFeatureNet
+from mmdet3d.models.middle_encoders.pillar_scatter import PointPillarsScatter
+from mmdet3d.ops import Voxelization
+
+class PC2Canvas(nn.Module):
+    
+    def __init__(self) -> None:
+        super().__init__()
+        
+        cfg_dict = {
+            'voxel_size': [0.625, 0.316, 4],
+            'point_cloud_range': [-80, -80, -3, 80, 1, 15],
+            'output_shape': [256, 256], # [496, 432],
+            'pf_net_channels': 64,
+        }
+        
+        self.voxel_layer = Voxelization(
+            voxel_size=cfg_dict['voxel_size'], 
+            point_cloud_range=cfg_dict['point_cloud_range'], 
+            max_num_points=32, 
+            max_voxels=(16000, 40000), 
+            deterministic=True
+        )
+        self.voxel_encoder = PillarFeatureNet(
+            voxel_size=cfg_dict['voxel_size'],
+            point_cloud_range=cfg_dict['point_cloud_range'],
+            feat_channels=(cfg_dict['pf_net_channels'], ),
+        )
+        self.middle_encoder = PointPillarsScatter(
+            in_channels=cfg_dict['pf_net_channels'],
+            output_shape=cfg_dict['output_shape'],
+        )
+        
+    
+    def forward(self, lidar_list):
+        """[summary]
+        
+        Args:
+            lidar_list: [ [pc](len=batch_size) ](len=seq_len)
+
+        Returns:
+            canvas_list: [ canvas_tensor ](len=seq_len), canvas_tensor has shape: (bs, w, h)
+        """
+        canvas_list = []
+        for points in lidar_list:
+            voxels, num_points, coors = self.voxelize(points)
+            voxel_features = self.voxel_encoder(voxels, num_points, coors)
+            batch_size = coors[-1, 0].item() + 1
+            x = self.middle_encoder(voxel_features, coors, batch_size)  # (bs, feature_dim, w, h)
+            canvas_list.append(x)
+        
+        return canvas_list
+    
+    @torch.no_grad()
+    # @force_fp32()
+    def voxelize(self, points):
+        """Apply hard voxelization to points."""
+        voxels, coors, num_points = [], [], []
+        for res in points:
+            res_voxels, res_coors, res_num_points = self.voxel_layer(res)
+            voxels.append(res_voxels)
+            coors.append(res_coors)
+            num_points.append(res_num_points)
+        voxels = torch.cat(voxels, dim=0)
+        num_points = torch.cat(num_points, dim=0)
+        coors_batch = []
+        for i, coor in enumerate(coors):
+            coor_pad = F.pad(coor, (1, 0), mode='constant', value=i)
+            coors_batch.append(coor_pad)
+        coors_batch = torch.cat(coors_batch, dim=0)
+        return voxels, num_points, coors_batch
+
 
 class ImageCNN(nn.Module):
     """ 
@@ -253,8 +326,14 @@ class Encoder(nn.Module):
 
         self.avgpool = nn.AdaptiveAvgPool2d((self.config.vert_anchors, self.config.horz_anchors))
         
+        if config.pc_bb == 'pp':
+            self.pc2canvas = PC2Canvas()
+        
         self.image_encoder = ImageCNN(512, normalize=True)
-        self.lidar_encoder = LidarEncoder(num_classes=512, in_channels=2)
+        self.lidar_encoder = LidarEncoder(
+            num_classes=512, 
+            in_channels=2 if config.pc_bb == 'bev' else 64
+        )
 
         self.transformer1 = GPT(n_embd=64,
                             n_head=config.n_head, 
@@ -307,19 +386,25 @@ class Encoder(nn.Module):
         Image + LiDAR feature fusion using transformers
         Args:
             image_list (list): list of input images
-            lidar_list (list): list of input LiDAR BEV
+            lidar_list (list): list of input LiDAR BEV  [(bs, ...), ...], len=seq_len
             velocity (tensor): input velocity from speedometer
         '''
         if self.image_encoder.normalize:
             image_list = [normalize_imagenet(image_input) for image_input in image_list]
+            
+        if isinstance(lidar_list[0], list):
+            # use pointpillar backbone
+            lidar_list = self.pc2canvas(lidar_list)
 
         bz, _, h, w = lidar_list[0].shape
         img_channel = image_list[0].shape[1]
         lidar_channel = lidar_list[0].shape[1]
         self.config.n_views = len(image_list) // self.config.seq_len
 
+        from IPython import embed
+        # embed()
         image_tensor = torch.stack(image_list, dim=1).view(bz * self.config.n_views * self.config.seq_len, img_channel, h, w)
-        lidar_tensor = torch.stack(lidar_list, dim=1).view(bz * self.config.seq_len, lidar_channel, h, w)
+        lidar_tensor = torch.stack(lidar_list, dim=1).view(bz * self.config.seq_len, lidar_channel, h, w)   # (bs, seq_len, ...)
 
         image_features = self.image_encoder.features.conv1(image_tensor)
         image_features = self.image_encoder.features.bn1(image_features)
@@ -332,9 +417,11 @@ class Encoder(nn.Module):
 
         image_features = self.image_encoder.features.layer1(image_features)
         lidar_features = self.lidar_encoder._model.layer1(lidar_features)
+        
         # fusion at (B, 64, 64, 64)
         image_embd_layer1 = self.avgpool(image_features)
         lidar_embd_layer1 = self.avgpool(lidar_features)
+        # (B, 64, 8, 8)
         image_features_layer1, lidar_features_layer1 = self.transformer1(image_embd_layer1, lidar_embd_layer1, velocity)
         image_features_layer1 = F.interpolate(image_features_layer1, scale_factor=8, mode='bilinear')
         lidar_features_layer1 = F.interpolate(lidar_features_layer1, scale_factor=8, mode='bilinear')
@@ -381,6 +468,7 @@ class Encoder(nn.Module):
 
         fused_features = torch.cat([image_features, lidar_features], dim=1)
         fused_features = torch.sum(fused_features, dim=1)
+
 
         return fused_features
 

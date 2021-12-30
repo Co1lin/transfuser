@@ -182,6 +182,7 @@ class CARLA_Data(Dataset):
         data['rights'] = []
         data['rears'] = []
         data['lidars'] = []
+        data['raw_lidars'] = []
 
         seq_fronts = self.front[index]
         seq_lefts = self.left[index]
@@ -193,6 +194,7 @@ class CARLA_Data(Dataset):
         seq_theta = self.theta[index]
 
         full_lidar = []
+        raw_lidar = []
         pos = []
         neg = []
         for i in range(self.seq_len):
@@ -207,7 +209,9 @@ class CARLA_Data(Dataset):
                 data['rears'].append(torch.from_numpy(np.array(
                     scale_and_crop_image(Image.open(seq_rears[i]), scale=self.scale, crop=self.input_resolution))))
             
-            lidar_unprocessed = np.load(seq_lidars[i])[...,:3] # lidar: XYZI
+            lidar_unprocessed = np.load(seq_lidars[i]) # lidar: XYZI
+            raw_lidar.append(torch.from_numpy(lidar_unprocessed))
+            lidar_unprocessed = lidar_unprocessed[...,:3]
             full_lidar.append(lidar_unprocessed)
         
             # fix for theta=nan in some measurements
@@ -221,6 +225,7 @@ class CARLA_Data(Dataset):
         # future frames
         for i in range(self.seq_len, self.seq_len + self.pred_len):
             lidar_unprocessed = np.load(seq_lidars[i])
+            raw_lidar.append(lidar_unprocessed)
             full_lidar.append(lidar_unprocessed)      
 
         # lidar and waypoint processing to local coordinates
@@ -241,7 +246,7 @@ class CARLA_Data(Dataset):
                     np.pi/2-seq_theta[i], -seq_x[i], -seq_y[i], np.pi/2-ego_theta, -ego_x, -ego_y)
                 lidar_processed = lidar_to_histogram_features(full_lidar[i], crop=self.input_resolution)
                 data['lidars'].append(lidar_processed)
-
+                data['raw_lidars'].append(raw_lidar[i])
         data['waypoints'] = waypoints
 
         # convert x_command, y_command to local coordinates
