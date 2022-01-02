@@ -1,5 +1,9 @@
 transfuser/log
 **/wandb*
+carla
+results
+model_ckpt
+data
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

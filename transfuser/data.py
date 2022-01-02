@@ -246,7 +246,7 @@ class CARLA_Data(Dataset):
                     np.pi/2-seq_theta[i], -seq_x[i], -seq_y[i], np.pi/2-ego_theta, -ego_x, -ego_y)
                 lidar_processed = lidar_to_histogram_features(full_lidar[i], crop=self.input_resolution)
                 data['lidars'].append(lidar_processed)
-                data['raw_lidars'].append(raw_lidar[i])
+                data['raw_lidars'].append(raw_lidar[i]) # TODO not inverted like full lidar?
         data['waypoints'] = waypoints
 
         # convert x_command, y_command to local coordinates

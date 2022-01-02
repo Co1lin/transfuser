@@ -38,6 +38,17 @@ from leaderboard.autoagents.agent_wrapper import  AgentWrapper, AgentError
 from leaderboard.utils.statistics_manager import StatisticsManager
 from leaderboard.utils.route_indexer import RouteIndexer
 
+def seed_all(seed: int):
+    import random
+    import numpy as np
+    import torch
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
 
 sensors_to_icons = {
     'sensor.camera.rgb':        'carla_camera',
@@ -265,7 +276,10 @@ class LeaderboardEvaluator(object):
         try:
             self._agent_watchdog.start()
             agent_class_name = getattr(self.module_agent, 'get_entry_point')()
-            self.agent_instance = getattr(self.module_agent, agent_class_name)(args.agent_config)
+            self.agent_instance = getattr(self.module_agent, agent_class_name)(
+                args.agent_config, 
+                { 'pc_bb': args.pc_bb },
+            )
             config.agent = self.agent_instance
 
             # Check and store the sensors
@@ -467,10 +481,14 @@ def main():
     parser.add_argument("--checkpoint", type=str,
                         default='./simulation_results.json',
                         help="Path to checkpoint used for saving statistics and resuming")
+    parser.add_argument('--seed', type=int, default=10, help='random seed')
+    parser.add_argument('--pc_bb', type=str, default='bev', help='bev or pointpillars(pp) for pointcloud processing backbone')
 
     arguments = parser.parse_args()
 
     statistics_manager = StatisticsManager()
+    
+    seed_all(arguments.seed)
 
     try:
         leaderboard_evaluator = LeaderboardEvaluator(arguments, statistics_manager)
@@ -478,6 +496,8 @@ def main():
 
     except Exception as e:
         traceback.print_exc()
+        from IPython import embed
+        embed()
     finally:
         del leaderboard_evaluator
 

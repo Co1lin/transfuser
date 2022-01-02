@@ -393,18 +393,16 @@ class Encoder(nn.Module):
         '''
         if self.image_encoder.normalize:
             image_list = [normalize_imagenet(image_input) for image_input in image_list]
-            
+        
         if isinstance(lidar_list[0], list):
             # use pointpillar backbone
             lidar_list = self.pc2canvas(lidar_list)
-
+        
         bz, _, h, w = lidar_list[0].shape
         img_channel = image_list[0].shape[1]
         lidar_channel = lidar_list[0].shape[1]
         self.config.n_views = len(image_list) // self.config.seq_len
 
-        from IPython import embed
-        # embed()
         image_tensor = torch.stack(image_list, dim=1).view(bz * self.config.n_views * self.config.seq_len, img_channel, h, w)
         lidar_tensor = torch.stack(lidar_list, dim=1).view(bz * self.config.seq_len, lidar_channel, h, w)   # (bs, seq_len, ...)
 
