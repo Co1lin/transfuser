@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+from torch.optim import optimizer
 from tqdm import tqdm
 import wandb
 
@@ -21,7 +22,7 @@ torch.cuda.empty_cache()
 parser = argparse.ArgumentParser()
 parser.add_argument('--id', type=str, default='transfuser', help='Unique experiment identifier.')
 parser.add_argument('--device', type=str, default='cuda', help='Device to use')
-parser.add_argument('--epochs', type=int, default=101, help='Number of train epochs.')
+parser.add_argument('--epochs', type=int, default=201, help='Number of train epochs.')
 parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate.')
 parser.add_argument('--val_every', type=int, default=5, help='Validation frequency (epochs).')
 parser.add_argument('--batch_size', type=int, default=24, help='Batch size')
@@ -276,7 +277,8 @@ dataloader_val = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, 
 
 # Model
 model = TransFuser(config, args.device)
-optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+# optimizer = optim.AdamW(model.parameters(), lr=args.lr)
+optimizer = optim.AdamW(model.get_param_groups())
 trainer = Engine()
 
 model_parameters = filter(lambda p: p.requires_grad, model.parameters())

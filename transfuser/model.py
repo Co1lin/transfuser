@@ -19,10 +19,13 @@ class PC2Canvas(nn.Module):
         # TODO use smaller voxel size and bigger output shape, then downsample the psedo img
         # TODO use stronger resnet backbone to process pointpillar img
         # TODO pointpillar lr 1e-3
+        # [0.3226, 0.1895, 4] for [496, 432]
+        # [0.625, 0.316, 4] for [256, 256]
+        # [0.3125, 0.158, 4] for [512, 512]
         cfg_dict = {
-            'voxel_size': [0.625, 0.316, 4],
+            'voxel_size': [0.3125, 0.158, 4], 
             'point_cloud_range': [-80, -80, -3, 80, 1, 15],
-            'output_shape': [256, 256], # [496, 432],
+            'output_shape': [512, 512], 
             'pf_net_channels': 64,
         }
         
@@ -30,7 +33,7 @@ class PC2Canvas(nn.Module):
             voxel_size=cfg_dict['voxel_size'], 
             point_cloud_range=cfg_dict['point_cloud_range'], 
             max_num_points=32, 
-            max_voxels=(16000, 40000), 
+            max_voxels=(40000, 40000), 
             deterministic=True
         )
         self.voxel_encoder = PillarFeatureNet(
@@ -128,7 +131,8 @@ class LidarEncoder(nn.Module):
     def __init__(self, num_classes=512, in_channels=2):
         super().__init__()
 
-        self._model = models.resnet18()
+        # self._model = models.resnet18()
+        self._model = models.resnet34()
         self._model.fc = nn.Sequential()
         _tmp = self._model.conv1
         self._model.conv1 = nn.Conv2d(in_channels, out_channels=_tmp.out_channels, 
@@ -330,6 +334,7 @@ class Encoder(nn.Module):
         
         if config.pc_bb == 'pp':
             self.pc2canvas = PC2Canvas()
+            self.pimg_downsample = nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1)
         
         self.image_encoder = ImageCNN(512, normalize=True)
         self.lidar_encoder = LidarEncoder(
@@ -398,13 +403,15 @@ class Encoder(nn.Module):
             # use pointpillar backbone
             lidar_list = self.pc2canvas(lidar_list)
         
-        bz, _, h, w = lidar_list[0].shape
+        bz, _, h, w = image_list[0].shape
+        _, _, lh, lw = lidar_list[0].shape
         img_channel = image_list[0].shape[1]
         lidar_channel = lidar_list[0].shape[1]
         self.config.n_views = len(image_list) // self.config.seq_len
 
         image_tensor = torch.stack(image_list, dim=1).view(bz * self.config.n_views * self.config.seq_len, img_channel, h, w)
-        lidar_tensor = torch.stack(lidar_list, dim=1).view(bz * self.config.seq_len, lidar_channel, h, w)   # (bs, seq_len, ...)
+        lidar_tensor = torch.stack(lidar_list, dim=1).view(bz * self.config.seq_len, lidar_channel, lh, lw)   # (bs * seq_len, ...)
+        lidar_tensor = self.pimg_downsample(lidar_tensor)
 
         image_features = self.image_encoder.features.conv1(image_tensor)
         image_features = self.image_encoder.features.bn1(image_features)
@@ -598,3 +605,26 @@ class TransFuser(nn.Module):
         }
 
         return steer, throttle, brake, metadata
+    
+    def get_param_groups(self):
+        param_groups = []
+        
+        tf_params = []
+        other_params = []
+        for name, p in self.named_parameters():
+            if 'transformer' in name:
+                tf_params.append(p)
+            else:
+                other_params.append(p)
+        
+        param_groups.append({
+            'params': tf_params,
+            'lr': 2e-4,
+        })
+        param_groups.append({
+            'params': other_params,
+            'lr': 1e-3
+        })
+        
+        return param_groups
+        
