@@ -23,9 +23,9 @@ class PC2Canvas(nn.Module):
         # [0.625, 0.316, 4] for [256, 256]
         # [0.3125, 0.158, 4] for [512, 512]
         cfg_dict = {
-            'voxel_size': [0.3125, 0.158, 4], 
+            'voxel_size': [0.313, 0.159, 4], 
             'point_cloud_range': [-80, -80, -3, 80, 1, 15],
-            'output_shape': [512, 512], 
+            'output_shape': [512, 512],
             'pf_net_channels': 64,
         }
         
@@ -58,6 +58,8 @@ class PC2Canvas(nn.Module):
         """
         canvas_list = []
         for points in lidar_list:
+            # from IPython import embed
+            # embed()
             voxels, num_points, coors = self.voxelize(points)
             voxel_features = self.voxel_encoder(voxels, num_points, coors)
             batch_size = coors[-1, 0].item() + 1
