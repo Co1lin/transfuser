@@ -208,14 +208,16 @@ class Engine(object):
 
 			num_batches += 1
 			optimizer.step()
-			scheduler.step(self.cur_epoch)
 
 			writer.add_scalar('train_loss', loss.item(), self.cur_iter)
 			if args.wandb:
 				wandb.log({'train_loss': loss.item()})
 			self.cur_iter += 1
 		
-		
+		scheduler.step(self.cur_epoch)
+		if args.wandb:
+			wandb.log({'lr': optimizer.param_groups[0]['lr']})
+
 		loss_epoch = loss_epoch / num_batches
 		self.train_loss.append(loss_epoch)
 		self.cur_epoch += 1
