@@ -17,13 +17,84 @@ from config import GlobalConfig
 from model import TransFuser
 from data import CARLA_Data
 
+from torch.optim.lr_scheduler import _LRScheduler
+
+class GradualWarmupScheduler(_LRScheduler):
+    """ Gradually warm-up(increasing) learning rate in optimizer.
+      Proposed in 'Accurate, Large Minibatch SGD: Training ImageNet in 1 Hour'.
+      Args:
+          optimizer (Optimizer): Wrapped optimizer.
+          multiplier: init learning rate = base lr / multiplier
+          warmup_epoch: target learning rate is reached at warmup_epoch, gradually
+          after_scheduler: after target_epoch, use this scheduler(eg. ReduceLROnPlateau)
+      """
+
+    def __init__(self, optimizer, multiplier, warmup_epoch, after_scheduler, last_epoch=-1, after_is_reduce=False):
+        self.multiplier = multiplier
+        if self.multiplier <= 1.:
+            raise ValueError('multiplier should be greater than 1.')
+        self.warmup_epoch = warmup_epoch
+        self.after_scheduler = after_scheduler
+        self.finished = False
+        self.after_is_reduce = after_is_reduce
+        super().__init__(optimizer, last_epoch=last_epoch)
+
+    def get_lr(self):
+        if self.last_epoch > self.warmup_epoch:
+            return self.after_scheduler.get_lr()
+        else:
+            return [base_lr / self.multiplier * ((self.multiplier - 1.) * self.last_epoch / self.warmup_epoch + 1.)
+                    for base_lr in self.base_lrs]
+
+    def step(self, p1=None, p2=None):
+        if self.after_is_reduce is False:
+            epoch = p1
+        else:
+            metrics, epoch = p1, p2
+        
+        if epoch is None:
+            epoch = self.last_epoch + 1
+        self.last_epoch = epoch
+        if epoch > self.warmup_epoch:
+            if self.after_is_reduce is False:
+                self.after_scheduler.step(epoch - self.warmup_epoch)
+            else:
+                self.after_scheduler.step(metrics, epoch - self.warmup_epoch)
+        else:
+            super(GradualWarmupScheduler, self).step(epoch)
+
+    def state_dict(self):
+        """Returns the state of the scheduler as a :class:`dict`.
+
+        It contains an entry for every variable in self.__dict__ which
+        is not the optimizer.
+        """
+
+        state = {key: value for key, value in self.__dict__.items() if key != 'optimizer' and key != 'after_scheduler'}
+        state['after_scheduler'] = self.after_scheduler.state_dict()
+        return state
+
+    def load_state_dict(self, state_dict):
+        """Loads the schedulers state.
+
+        Arguments:
+            state_dict (dict): scheduler state. Should be an object returned
+                from a call to :meth:`state_dict`.
+        """
+
+        after_scheduler_state = state_dict.pop('after_scheduler')
+        self.__dict__.update(state_dict)
+        self.after_scheduler.load_state_dict(after_scheduler_state)
+
 torch.cuda.empty_cache()
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--id', type=str, default='transfuser', help='Unique experiment identifier.')
 parser.add_argument('--device', type=str, default='cuda', help='Device to use')
 parser.add_argument('--epochs', type=int, default=201, help='Number of train epochs.')
+parser.add_argument('--warmup-epochs', type=int, default=40, help='Number of warmup epochs.')
 parser.add_argument('--lr', type=float, default=1e-4, help='Learning rate.')
+parser.add_argument('--scheduler', type=str, default='cosann', help='scheduler for training.')
 parser.add_argument('--val_every', type=int, default=5, help='Validation frequency (epochs).')
 parser.add_argument('--batch_size', type=int, default=24, help='Batch size')
 parser.add_argument('--logdir', type=str, default='log', help='Directory to log data to.')
@@ -137,6 +208,7 @@ class Engine(object):
 
 			num_batches += 1
 			optimizer.step()
+			scheduler.step(self.cur_epoch)
 
 			writer.add_scalar('train_loss', loss.item(), self.cur_iter)
 			if args.wandb:
@@ -279,6 +351,38 @@ dataloader_val = DataLoader(val_set, batch_size=args.batch_size, shuffle=False, 
 model = TransFuser(config, args.device)
 # optimizer = optim.AdamW(model.parameters(), lr=args.lr)
 optimizer = optim.AdamW(model.get_param_groups())
+# scheduler configuration
+if args.scheduler == 'cosann':
+	scheduler = optim.lr_scheduler.CosineAnnealingLR(
+		optimizer=optimizer,
+		eta_min=1e-6,
+		T_max=(args.epochs - args.warmup_epoch)/4,
+	)
+elif args.scheduler == 'reduce':
+    scheduler = optim.lr_scheduler.ReduceLROnPlateau(
+		optimizer=optimizer,
+		patience=30,
+		factor=0.1,
+		threshold=0.01,
+	)
+elif args.scheduler == 'multistep':
+    scheduler = optim.lr_scheduler.MultiStepLR(
+		optimizer=optimizer,
+		gamma=0.1,
+		milestones=[
+			(m - args.warmup_epoch) 
+			for m in [90, 140]
+		],
+	)
+if args.warmup_epoch > -1:
+    scheduler = GradualWarmupScheduler(
+		optimizer=optimizer,
+		multiplier=100,
+		warmup_epoch=args.warmup_epoch,
+		after_scheduler=scheduler,
+		after_is_reduce=isinstance(scheduler, optim.lr_scheduler.ReduceLROnPlateau)
+	)
+
 trainer = Engine()
 
 model_parameters = filter(lambda p: p.requires_grad, model.parameters())

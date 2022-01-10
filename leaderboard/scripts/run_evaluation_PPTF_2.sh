@@ -11,8 +11,8 @@ export PYTHONPATH=$PYTHONPATH:scenario_runner
 
 export LEADERBOARD_ROOT=leaderboard
 export CHALLENGE_TRACK_CODENAME=SENSORS
-export PORT=20034 # same as the carla server port
-export TM_PORT=8001 # port for traffic manager, required when spawning multiple servers/clients
+export PORT=20012 # same as the carla server port
+export TM_PORT=8000 # port for traffic manager, required when spawning multiple servers/clients
 export DEBUG_CHALLENGE=0
 export REPETITIONS=1 # multiple evaluation runs
 
@@ -20,31 +20,12 @@ export RESUME=False
 
 export ROUTES=leaderboard/data/evaluation_routes/routes_town05_long.xml
 export TEAM_AGENT=leaderboard/team_code/transfuser_agent.py
-export TEAM_CONFIG=model_ckpt/PPTF_clear_long_0109
+export TEAM_CONFIG=model_ckpt/PPTF_clear_0109
 export SCENARIOS=leaderboard/data/scenarios/town05_all_scenarios.json
 
 ##################################################
-export SAVE_PATH=data/PPTF_clear_long_0109_1 # path for saving episodes while evaluating
-export CHECKPOINT_ENDPOINT=results/PPTF_clear_long_0109_1.json
-
-python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
---scenarios=${SCENARIOS}  \
---routes=${ROUTES} \
---repetitions=${REPETITIONS} \
---track=${CHALLENGE_TRACK_CODENAME} \
---checkpoint=${CHECKPOINT_ENDPOINT} \
---agent=${TEAM_AGENT} \
---agent-config=${TEAM_CONFIG} \
---debug=${DEBUG_CHALLENGE} \
---record=${RECORD_PATH} \
---resume=${RESUME} \
---port=${PORT} \
---trafficManagerPort=${TM_PORT} \
---pc_bb=pp
-
-##################################################
-export SAVE_PATH=data/PPTF_clear_long_0109_2 # path for saving episodes while evaluating
-export CHECKPOINT_ENDPOINT=results/PPTF_clear_long_0109_2.json
+export SAVE_PATH=data/PPTF_clear_0109_2 # path for saving episodes while evaluating
+export CHECKPOINT_ENDPOINT=results/PPTF_clear_result_0109_2.json
 
 python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
 --scenarios=${SCENARIOS}  \
@@ -62,8 +43,8 @@ python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
 --pc_bb=pp
 
 # ##################################################
-# export SAVE_PATH=data/PPTF_clear_0101_9 # path for saving episodes while evaluating
-# export CHECKPOINT_ENDPOINT=results/PPTF_clear_result_0101_9.json
+# export SAVE_PATH=data/PPTF_clear_0109_2 # path for saving episodes while evaluating
+# export CHECKPOINT_ENDPOINT=results/PPTF_clear_result_0109_2.json
 
 # python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
 # --scenarios=${SCENARIOS}  \
@@ -81,8 +62,27 @@ python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
 # --pc_bb=pp
 
 # ##################################################
-# export SAVE_PATH=data/PPTF_clear_0101_10 # path for saving episodes while evaluating
-# export CHECKPOINT_ENDPOINT=results/PPTF_clear_result_0101_10.json
+# export SAVE_PATH=data/PPTF_clear_0109_3 # path for saving episodes while evaluating
+# export CHECKPOINT_ENDPOINT=results/PPTF_clear_result_0109_3.json
+
+# python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
+# --scenarios=${SCENARIOS}  \
+# --routes=${ROUTES} \
+# --repetitions=${REPETITIONS} \
+# --track=${CHALLENGE_TRACK_CODENAME} \
+# --checkpoint=${CHECKPOINT_ENDPOINT} \
+# --agent=${TEAM_AGENT} \
+# --agent-config=${TEAM_CONFIG} \
+# --debug=${DEBUG_CHALLENGE} \
+# --record=${RECORD_PATH} \
+# --resume=${RESUME} \
+# --port=${PORT} \
+# --trafficManagerPort=${TM_PORT} \
+# --pc_bb=pp
+
+# ##################################################
+# export SAVE_PATH=data/PPTF_clear_0101_6 # path for saving episodes while evaluating
+# export CHECKPOINT_ENDPOINT=results/PPTF_clear_result_0101_6.json
 
 # python3 ${LEADERBOARD_ROOT}/leaderboard/leaderboard_evaluator.py \
 # --scenarios=${SCENARIOS}  \

@@ -4,6 +4,7 @@ carla
 results
 model_ckpt
 data
+leaderboard/scripts
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
