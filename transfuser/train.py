@@ -149,6 +149,9 @@ class Engine(object):
 		num_batches = 0
 		model.train()
 
+		if args.wandb:
+			wandb.log({'lr': optimizer.param_groups[0]['lr']})
+  
 		# Train loop
 		for data in tqdm(dataloader_train):
 			
@@ -215,8 +218,6 @@ class Engine(object):
 			self.cur_iter += 1
 		
 		scheduler.step(self.cur_epoch)
-		if args.wandb:
-			wandb.log({'lr': optimizer.param_groups[0]['lr']})
 
 		loss_epoch = loss_epoch / num_batches
 		self.train_loss.append(loss_epoch)
@@ -315,6 +316,7 @@ class Engine(object):
 		# Save the recent model/optimizer states
 		torch.save(model.state_dict(), os.path.join(args.logdir, 'model.pth'))
 		torch.save(optimizer.state_dict(), os.path.join(args.logdir, 'recent_optim.pth'))
+		torch.save(scheduler.state_dict(), os.path.join(args.logdir, 'recent_scheduler.pth'))
 
 		# Log other data corresponding to the recent model
 		with open(os.path.join(args.logdir, 'recent.log'), 'w') as f:
@@ -410,6 +412,7 @@ elif os.path.isfile(os.path.join(args.logdir, 'recent.log')):
 	# Load checkpoint
 	model.load_state_dict(torch.load(os.path.join(args.logdir, 'model.pth')))
 	optimizer.load_state_dict(torch.load(os.path.join(args.logdir, 'recent_optim.pth')))
+	scheduler.load_state_dict(torch.load(os.path.join(args.logdir, 'recent_scheduler.pth')))
 
 # Log args
 with open(os.path.join(args.logdir, 'args.txt'), 'w') as f:

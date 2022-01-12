@@ -5,6 +5,8 @@ import numpy as np
 import torch 
 from torch import nn
 import torch.nn.functional as F
+from torch.nn.modules.activation import ReLU
+from torch.nn.modules.batchnorm import BatchNorm2d
 from torchvision import models
 
 from mmdet3d.models.detectors.voxelnet import VoxelNet
@@ -336,7 +338,11 @@ class Encoder(nn.Module):
         
         if config.pc_bb == 'pp':
             self.pc2canvas = PC2Canvas()
-            self.pimg_downsample = nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1)
+            self.pimg_downsample = nn.Sequential(
+                nn.Conv2d(64, 64, kernel_size=7, stride=2, padding=3),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+            )
         
         self.image_encoder = ImageCNN(512, normalize=True)
         self.lidar_encoder = LidarEncoder(
