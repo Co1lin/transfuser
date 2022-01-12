@@ -6,19 +6,20 @@ class GlobalConfig:
     seq_len = 1 # input timesteps
     pred_len = 4 # future waypoints predicted
 
-    root_dir = '/home/airtrans00/colin/transfuser/data/clear_weather_data'
+    root_dir = '/home/train_model/workspace/colin/transfuser/data/clear_weather_data/clear_weather'
     train_towns = ['Town01', 'Town02', 'Town03', 'Town04', 'Town06', 'Town07', 'Town10']
     val_towns = ['Town05']
     train_data, val_data = [], []
     for town in train_towns:
         train_data.append(os.path.join(root_dir, town+'_tiny'))
         train_data.append(os.path.join(root_dir, town+'_short'))
-        # train_data.append(os.path.join(root_dir, town+'_long'))
+        # if os.path.exists(os.path.join(root_dir, town+'_long')):
+        #     train_data.append(os.path.join(root_dir, town+'_long'))
     for town in val_towns:
         val_data.append(os.path.join(root_dir, town+'_short'))
 
     # visualizing transformer attention maps
-    viz_root = '/home/airtrans00/colin/transfuser/data/clear_weather_data'
+    viz_root = '/home/train_model/workspace/colin/transfuser/data/clear_weather_data/clear_weather'
     viz_towns = ['Town05_tiny']
     viz_data = []
     for town in viz_towns:

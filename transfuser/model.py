@@ -5,6 +5,8 @@ import numpy as np
 import torch 
 from torch import nn
 import torch.nn.functional as F
+from torch.nn.modules.activation import ReLU
+from torch.nn.modules.batchnorm import BatchNorm2d
 from torchvision import models
 
 from mmdet3d.models.detectors.voxelnet import VoxelNet
@@ -23,9 +25,9 @@ class PC2Canvas(nn.Module):
         # [0.625, 0.316, 4] for [256, 256]
         # [0.3125, 0.158, 4] for [512, 512]
         cfg_dict = {
-            'voxel_size': [0.3125, 0.158, 4], 
+            'voxel_size': [0.313, 0.159, 4], 
             'point_cloud_range': [-80, -80, -3, 80, 1, 15],
-            'output_shape': [512, 512], 
+            'output_shape': [512, 512],
             'pf_net_channels': 64,
         }
         
@@ -58,6 +60,8 @@ class PC2Canvas(nn.Module):
         """
         canvas_list = []
         for points in lidar_list:
+            # from IPython import embed
+            # embed()
             voxels, num_points, coors = self.voxelize(points)
             voxel_features = self.voxel_encoder(voxels, num_points, coors)
             batch_size = coors[-1, 0].item() + 1
@@ -334,7 +338,11 @@ class Encoder(nn.Module):
         
         if config.pc_bb == 'pp':
             self.pc2canvas = PC2Canvas()
-            self.pimg_downsample = nn.Conv2d(64, 64, kernel_size=4, stride=2, padding=1)
+            self.pimg_downsample = nn.Sequential(
+                nn.Conv2d(64, 64, kernel_size=7, stride=2, padding=3),
+                nn.BatchNorm2d(64),
+                nn.ReLU(),
+            )
         
         self.image_encoder = ImageCNN(512, normalize=True)
         self.lidar_encoder = LidarEncoder(

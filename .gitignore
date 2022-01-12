@@ -4,6 +4,10 @@ carla
 results
 model_ckpt
 data
+leaderboard/scripts/
+.history
+transfuser/config.py
+leaderboard/leaderboard/leaderboard_evaluator.py
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
